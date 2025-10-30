@@ -7,7 +7,7 @@ spec:
   selector:
     app: stock-analysis
   # EKS에서 AWS Classic/Network Load Balancer를 프로비저닝합니다.
-  type: LoadBalancer 
+  type: NodePort
   ports:
     - protocol: TCP
       port: 80

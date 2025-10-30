@@ -9,6 +9,7 @@ on:
       - 'main.tf' # 인프라 변경 시 Terraform 실행
       - 'app/**' # 애플리케이션 변경 시 빌드 및 배포
       - 'kubernetes/**' # Kubernetes 배포 파일 변경 시 배포
+      - '.github/workflows/ci-cd.yaml' # 워크플로우 파일 변경 시 실행
 
 env:
   AWS_REGION: ap-northeast-2
@@ -63,6 +64,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Deploy to EKS # 🌟 이 'Step'의 이름
+      run: | # 🌟 'run:' 아래는 Shell 명령어 (Bash)
+          # 1. 기존 리소스 삭제 (ALB 전환을 위한 초기화)
+          kubectl delete service stock-analysis-service || true
+          kubectl delete deployment stock-analysis-app || true 
+          kubectl delete ingress stock-analysis-ingress || true
+          
+          # 2. 새로운 리소스 적용
+          kubectl apply -f kubernetes/service.yaml # NodePort Service
+          kubectl apply -f kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/ingress.yaml # Ingress 리소스
+
 
     # 2.1 AWS 자격 증명 설정
     - name: Configure AWS Credentials

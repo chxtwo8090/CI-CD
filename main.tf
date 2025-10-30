@@ -409,4 +409,98 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.app.repository_url
 }
 
+################################################################################
+# AWS Load Balancer Controller (ALB) 설정
+################################################################################
 
+# 1. Controller가 Assume Role할 수 있도록 Trust Policy 정의
+data "aws_iam_policy_document" "alb_assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+    
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.ca.arn]
+    }
+    
+    # Controller의 Service Account 이름과 Namespace 지정
+    condition {
+      test     = "StringEquals"
+      variable = "${data.aws_eks_cluster.main_data.identity[0].oidc[0].issuer}:sub"
+      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${data.aws_eks_cluster.main_data.identity[0].oidc[0].issuer}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+# 2. Controller의 IAM 역할 생성
+resource "aws_iam_role" "alb_controller" {
+  name               = "${local.project_name}-alb-controller-role"
+  assume_role_policy = data.aws_iam_policy_document.alb_assume_role.json
+}
+
+# 3. AWS 공식 문서에서 제공하는 ALB Controller용 IAM 정책 연결
+resource "aws_iam_policy_attachment" "alb_controller_policy_attach" {
+  name       = "${local.project_name}-alb-policy-attach"
+  roles      = [aws_iam_role.alb_controller.name]
+  
+  # AWS 공식 정책 ARN을 사용합니다.
+  policy_arn = "arn:aws:iam::aws:policy/AWSLoadBalancerControllerIAMPolicy"
+}
+
+
+# 4. Kubernetes Service Account 생성 및 IAM 역할 연결
+resource "kubernetes_service_account" "alb_controller" {
+  metadata {
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+    annotations = {
+      # 생성한 IAM Role ARN을 Service Account에 Annotation으로 연결
+      "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
+    }
+    labels = {
+      "app.kubernetes.io/name"       = "aws-load-balancer-controller"
+      "app.kubernetes.io/instance"   = "aws-load-balancer-controller"
+    }
+  }
+}
+
+# 5. Helm Chart를 사용하여 ALB Controller 배포
+# (Helm Provider가 정의되지 않았다면, provider.tf 또는 main.tf 상단에 추가해야 합니다.)
+resource "helm_release" "alb_controller" {
+  depends_on = [
+    aws_iam_role.alb_controller,
+    kubernetes_service_account.alb_controller
+  ]
+  
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.7.1" # 현재 시점의 안정적인 버전.
+
+  set {
+    name  = "clusterName"
+    value = local.project_name
+  }
+  
+  set {
+    name  = "serviceAccount.create"
+    value = "false" # Service Account는 Terraform이 이미 생성했으므로 false
+  }
+  
+  set {
+    name  = "serviceAccount.name"
+    value = kubernetes_service_account.alb_controller.metadata[0].name
+  }
+  
+  set {
+    name  = "image.repository"
+    value = "public.ecr.aws/eks-distro/aws-load-balancer-controller/controller"
+  }
+}

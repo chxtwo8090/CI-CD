@@ -1,0 +1,28 @@
+# kubernetes/ingress.yaml (새로 생성)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stock-analysis-ingress
+  annotations:
+    # 🌟 2. ALB Ingress Controller에게 ALB를 생성하도록 지시합니다. 🌟
+    kubernetes.io/ingress.class: alb
+    
+    # 3. ALB 스키마 설정 (인터넷 연결 가능)
+    alb.ingress.kubernetes.io/scheme: internet-facing 
+    
+    # 4. 헬스 체크 경로 지정 (선택 사항)
+    alb.ingress.kubernetes.io/healthcheck-path: / 
+    
+    # 5. 로드 밸런서 이름 지정 (선택 사항)
+    alb.ingress.kubernetes.io/load-balancer-name: stock-analysis-alb
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: stock-analysis-service # 위에 정의한 NodePort Service 이름
+            port:
+              number: 80 # Service의 Port 번호 (80)
