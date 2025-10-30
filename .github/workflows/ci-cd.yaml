@@ -58,7 +58,7 @@ jobs:
   deploy:
     name: Deploy to EKS
     runs-on: ubuntu-latest
-    needs: [terraform] # 인프라 배포가 성공적으로 완료된 후 실행
+    #needs: [terraform] # 인프라 배포가 성공적으로 완료된 후 실행
 
     steps:
     - uses: actions/checkout@v4
