@@ -407,3 +407,4 @@ output "ecr_repository_url" {
   description = "ECR repository URL for CI/CD pipeline"
   value       = aws_ecr_repository.app.repository_url
 }
+
