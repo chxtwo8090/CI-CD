@@ -1,0 +1,5 @@
+# project-root/app/requirements.txt
+Flask
+pandas
+requests
+gunicorn # 프로덕션 서버로 사용
