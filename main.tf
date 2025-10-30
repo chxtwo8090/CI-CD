@@ -185,7 +185,8 @@ resource "aws_eks_cluster" "main" {
     subnet_ids         = aws_subnet.private[*].id
     security_group_ids = []
     endpoint_private_access = true
-    endpoint_public_access  = false
+    endpoint_public_access  = true
+    public_access_cidrs     = ["0.0.0.0/0"]
   }
   depends_on = [
     aws_iam_role_policy_attachment.eks_master_policy,
@@ -202,8 +203,8 @@ resource "aws_eks_node_group" "private" {
   disk_size       = 20
 
   scaling_config {
-    desired_size = 2
-    max_size     = 3
+    desired_size = 1
+    max_size     = 2
     min_size     = 1
   }
 
