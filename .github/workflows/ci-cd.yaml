@@ -1,0 +1,104 @@
+# .github/workflows/ci-cd.yml
+name: EKS Infrastructure & Application CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'main.tf' # 인프라 변경 시 Terraform 실행
+      - 'app/**' # 애플리케이션 변경 시 빌드 및 배포
+      - 'kubernetes/**' # Kubernetes 배포 파일 변경 시 배포
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: stock-analysis-eks-app
+  EKS_CLUSTER_NAME: stock-analysis-eks
+
+jobs:
+  # 1. 인프라 변경 감지 및 Terraform 배포
+  terraform:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    
+    # main.tf 파일이 변경되었을 때만 실행
+    if: contains(github.event.head_commit.modified, 'main.tf') || contains(github.event.head_commit.added, 'main.tf')
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    # 1.1 AWS 자격 증명 설정 (GitHub Secrets에 등록 필수)
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    # 1.2 Terraform Init (S3 백엔드 설정)
+    - name: Terraform Init
+      run: |
+        terraform init -backend-config="bucket=chxtwo-git" \
+                       -backend-config="key=personal-project/eks/terraform.tfstate" \
+                       -backend-config="region=${{ env.AWS_REGION }}" \
+                       -backend-config="dynamodb_table=terraform-state-lock"
+
+    # 1.3 Terraform Plan
+    - name: Terraform Plan
+      run: terraform plan -no-color
+
+    # 1.4 Terraform Apply
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+
+  # 2. 애플리케이션 빌드, ECR 푸시 및 EKS 배포
+  deploy:
+    name: Deploy to EKS
+    runs-on: ubuntu-latest
+    needs: [terraform] # 인프라 배포가 성공적으로 완료된 후 실행
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # 2.1 AWS 자격 증명 설정
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # 2.2 ECR 로그인
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # 2.3 이미지 빌드 및 ECR 푸시
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }} # 커밋 SHA를 이미지 태그로 사용
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG app/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    # 2.4 EKS 설정 (kubectl 접속)
+    - name: Update kubeconfig
+      run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+    # 2.5 Kubernetes 배포 파일 수정 (최신 이미지 태그 적용)
+    - name: Replace image tag in k8s deployment
+      run: |
+        ECR_URL="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
+        sed -i "s|<ECR_URL>/stock-analysis-eks-app:latest|$ECR_URL:${{ github.sha }}|g" kubernetes/deployment.yaml
+
+    # 2.6 Kubernetes 배포
+    - name: Deploy to EKS
+      run: |
+        kubectl apply -f kubernetes/deployment.yaml
+        kubectl apply -f kubernetes/service.yaml
