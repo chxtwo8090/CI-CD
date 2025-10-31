@@ -56,8 +56,8 @@ jobs:
       - name: Deploy with Helm
         # Helm CLI는 ubuntu-latest 환경에 대부분 설치되어 있습니다.
         run: |
-         # ⬇️ [수정]: Helm set 옵션을 3개의 이미지 경로와 함께,
-          # Service 포트까지 명시하여 'nil pointer' 오류를 방지합니다.
+         # ⬇️ [수정]: 모든 이미지 태그와 함께, Frontend 서비스의 포트까지 명시하여 
+          # 템플릿 엔진이 모든 필수 값을 찾도록 보장합니다.
           helm upgrade stock-api-release ./charts/stock-app \
             --install \
             --atomic \
@@ -65,5 +65,7 @@ jobs:
             --set backend.image.tag=${{ github.sha }} \
             --set frontend.image.tag=${{ github.sha }} \
             --set llm.image.tag=${{ github.sha }} \
-            --set backend.service.targetPort=8080 
-            # ⬅️ targetPort 값을 직접 전달하여 nil pointer 오류를 회피합니다.
+            --set backend.service.targetPort=8080 \
+            --set frontend.service.targetPort=80 \
+            --set llm.service.targetPort=5000 
+            # ⬅️ 모든 서비스의 targetPort를 명시하여 nil pointer 오류를 완벽히 해결합니다.
