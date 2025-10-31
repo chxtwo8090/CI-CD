@@ -28,11 +28,25 @@ jobs:
         run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
       
       # 3. 모든 Pod의 상태 진단 (Timeout 원인 파악)
-      - name: Check all Pod statuses
+      - name: Delete and Recreate ALB Controller
         run: |
-          echo "--- All Pods Status (A-wide) ---"
-          # ⬇️ [수정]: 모든 네임스페이스의 Pod 상태 출력
-          kubectl get pods -A -o wide 
+          echo "--- Attempting to delete ALB Controller Pod ---"
+          # LBC Pod의 이름 찾기
+          LBC_POD_NAME=$(kubectl get pod -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller -o jsonpath='{.items[0].metadata.name}' || echo "")
+          
+          if [ -n "$LBC_POD_NAME" ]; then
+            echo "Found LBC Pod: $LBC_POD_NAME. Deleting it now."
+            # Pod 삭제 명령 (Deployment가 자동으로 다시 생성함)
+            kubectl delete pod $LBC_POD_NAME -n kube-system
+          else
+            echo "LBC Pod not found. It might be stuck in a failed state."
+          fi
+          
+          echo "Waiting 30 seconds for new Pod to initialize..."
+          sleep 30
+          
+          # Pod 상태 최종 확인
+          kubectl get pods -A -o wide
           
       # 4. Ingress Controller Pod 상태 확인 (ALB 생성 주체)
       - name: Check Ingress Controller Status
