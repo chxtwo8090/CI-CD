@@ -1,0 +1,41 @@
+# .github/workflows/diagnose.yml
+name: "EKS Deployment Diagnoser"
+
+on: [workflow_dispatch] # ⬅️ GitHub 웹에서 수동으로 실행하도록 설정
+
+permissions:
+  id-token: write # OIDC 인증
+
+env:
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: chan-gyu-stock-eks
+  
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # 1. OIDC를 통한 AWS 인증 (GitHub Actions 환경은 성공함)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }} 
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 2. Kubeconfig 업데이트
+      - name: Update Kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+      
+      # 3. 모든 Pod의 상태 진단 (Timeout 원인 파악)
+      - name: Check all Pod statuses
+        run: |
+          echo "--- All Pods Status ---"
+          kubectl get pods -o wide
+          
+      # 4. 실패한 Pod 상세 정보 확인 (ImagePullBackOff, Pending 등의 원인)
+      - name: Get Deployment Details
+        run: |
+          echo "--- Deployment Details ---"
+          # Backend Pod의 상태 설명 (예시)
+          kubectl describe deployment stock-api-release-backend
