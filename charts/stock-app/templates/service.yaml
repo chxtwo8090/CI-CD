@@ -1,23 +1,44 @@
 # charts/stock-app/templates/service.yaml
 
+# 1. 백엔드 API Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-service
-  annotations:
-    # EKS에서 Service Type: LoadBalancer 사용 시 ALB(Application Load Balancer)를 프로비저닝하도록 명시
-    service.beta.kubernetes.io/aws-load-balancer-type: "external"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+  name: {{ .Release.Name }}-backend-service
+  labels:
+    app: backend
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP # ⬅️ [수정]: Ingress 사용을 위해 ClusterIP로 변경
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
+    - port: 80
+      targetPort: {{ .Values.backend.service.targetPort }}
       protocol: TCP
       name: http
   selector:
-    app: {{ .Release.Name }}
+    app: backend
 
+---
+
+# 2. 프론트엔드 Web Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-frontend-service
+  labels:
+    app: frontend
+spec:
+  type: ClusterIP # ⬅️ [수정]: ClusterIP로 변경
+  ports:
+    - port: 80
+      targetPort: {{ .Values.frontend.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: frontend
+
+---
+
+# 3. LLM 챗봇 API Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -25,7 +46,7 @@ metadata:
   labels:
     app: llm-chatbot
 spec:
-  type: ClusterIP 
+  type: ClusterIP # ⬅️ [수정]: ClusterIP로 변경
   ports:
     - port: 80
       targetPort: {{ .Values.llm.service.targetPort }}

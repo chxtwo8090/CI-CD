@@ -5,36 +5,10 @@ kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ingress
   annotations:
-    # ⬇️ Ingress Controller를 사용하도록 설정
-    kubernetes.io/ingress.class: "nginx" # EKS에 Nginx Ingress Controller가 설치되어 있다고 가정
-spec:
-  rules:
-  - host: {{ .Values.ingress.host }}
-    http:
-      paths:
-      # 1. 커뮤니티/API 트래픽 (로그인, 게시글 등)
-      - path: /api/*
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: {{ .Release.Name }}-backend-service
-            port:
-              number: 80
-      # 2. 기본 트래픽 (index.html, login.html 등)
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ .Release.Name }}-frontend-service
-            port:
-              number: 80
-
-  apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ .Release.Name }}-ingress
-  annotations:
-    kubernetes.io/ingress.class: "nginx" 
+    # ⬇️ [수정]: ALB Controller가 인식하도록 클래스 변경 및 어노테이션 추가
+    kubernetes.io/ingress.class: "alb" 
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
 spec:
   rules:
   - host: {{ .Values.ingress.host }}
