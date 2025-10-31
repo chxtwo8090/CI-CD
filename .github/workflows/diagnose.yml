@@ -31,7 +31,8 @@ jobs:
       - name: Check all Pod statuses
         run: |
           echo "--- All Pods Status ---"
-          kubectl get pods -o wide
+          # ⬇️ [수정]: 모든 네임스페이스의 Pod를 출력
+          kubectl get pods -A -o wide
           
       # 4. 실패한 Pod 상세 정보 확인 (ImagePullBackOff, Pending 등의 원인)
       - name: Get Deployment Details
