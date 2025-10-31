@@ -11,13 +11,10 @@ module "eks" {
   cluster_version = "1.29"
 
   vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets # EKS 노드는 프라이빗 서브넷에 위치
+  subnet_ids = module.vpc.private_subnets 
 
-  # ⬇️ [수정]: KMS 키 관리자 ARN 추가 (권한 오류 해결)
-  create_kms_key = true 
-  kms_key_administrator_arns = [
-    "arn:aws:iam::798874239435:role/GitHubActions-Terraform-Role"
-  ]
+  # ⬇️ [최종 수정]: EKS 제어 영역 KMS 암호화 비활성화
+  create_kms_key = false 
 
   eks_managed_node_groups = {
     cost_efficient_nodes = {
@@ -25,15 +22,18 @@ module "eks" {
       max_size       = 2
       desired_size   = 2
       instance_types = ["t3.small"] 
-      ami_type       = "AL2023_x86_64_STANDARD" # ⬅️ 이전 오타 수정 반영됨
+      ami_type       = "AL2023_x86_64_STANDARD"
       disk_size      = 20
     }
   }
 }
 
 # ---------------------------------------------
-# 2. EKS Pod의 DynamoDB 접근 권한 (IRSA)
+# 2. GitHubActions Role에게 KMS 키 접근 권한을 부여하는 정책 연결 해제 및 DynamoDB 권한 유지
 # ---------------------------------------------
+# ⚠️ 주의: aws_iam_policy.kms_key_access_policy 리소스와
+#         aws_iam_role_policy_attachment.github_actions_kms_attach 리소스는 
+#         더 이상 필요 없으므로 eks.tf 파일에서 제거해야 합니다.
 
 # DynamoDB 읽기/쓰기 정책 정의
 resource "aws_iam_policy" "dynamodb_access_policy" {
@@ -51,8 +51,7 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
   })
 }
 
-# EKS Service Account Role에 DynamoDB 정책 연결
- resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
+resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
   role       = module.eks.eks_managed_node_groups["cost_efficient_nodes"].iam_role_name 
   policy_arn = aws_iam_policy.dynamodb_access_policy.arn
 }
