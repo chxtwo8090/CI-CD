@@ -13,13 +13,19 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets # EKS 노드는 프라이빗 서브넷에 위치
 
+  # ⬇️ [수정]: KMS 키 관리자 ARN 추가 (권한 오류 해결)
+  create_kms_key = true 
+  kms_key_administrator_arns = [
+    "arn:aws:iam::798874239435:role/GitHubActions-Terraform-Role"
+  ]
+
   eks_managed_node_groups = {
     cost_efficient_nodes = {
       min_size       = 1
       max_size       = 2
       desired_size   = 2
-      instance_types = ["t3.small"] # 사용자 요청 반영
-      ami_type       = "AL2023_x86_64_STANDARD"
+      instance_types = ["t3.small"] 
+      ami_type       = "AL2023_x86_64_STANDARD" # ⬅️ 이전 오타 수정 반영됨
       disk_size      = 20
     }
   }
@@ -46,8 +52,7 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
 }
 
 # EKS Service Account Role에 DynamoDB 정책 연결
-resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
-  # ⬇️ [수정]: 노드 그룹의 IAM Role 이름을 참조하도록 변경
+ resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
   role       = module.eks.eks_managed_node_groups["cost_efficient_nodes"].iam_role_name 
   policy_arn = aws_iam_policy.dynamodb_access_policy.arn
 }

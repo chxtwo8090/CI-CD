@@ -43,6 +43,5 @@ resource "aws_iam_role_policy_attachment" "admin_access" {
 # 4. 출력: OIDC Role ARN (GitHub Secrets에 등록해야 함)
 # ---------------------------------------------
 output "github_actions_iam_role_arn" {
-  value = aws_iam_role.github_actions_role.arn
-  description = "GitHub Actions에서 사용할 AWS OIDC Role ARN"
+   value = aws_iam_role.github_actions_role.arn
 }
