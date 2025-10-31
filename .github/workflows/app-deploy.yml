@@ -6,16 +6,17 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**' # 백엔드 코드 변경 시에만 실행
+      - 'backend/**' # 백엔드 코드 변경 시에만 트리거되도록 설정
 
 permissions:
-  id-token: write # OIDC 인증 필수
+  id-token: write # OIDC 인증
   contents: read
 
 env:
   AWS_REGION: ap-northeast-2
   EKS_CLUSTER_NAME: chan-gyu-stock-eks
   BACKEND_REPO: stock-api 
+  AWS_ACCOUNT_ID: 798874239435 # 계정 ID 환경 변수 추가
 
 jobs:
   build_and_deploy:
@@ -27,13 +28,14 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }} # 인프라 Role과 동일 Role 사용 가정
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }} 
           aws-region: ${{ env.AWS_REGION }}
 
-      # 2. ECR 로그인
+      # 2. ECR 로그인 (with 블록 제거)
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+        # aws-actions/configure-aws-credentials@v4 출력을 자동으로 사용합니다.
 
       # 3. Docker 이미지 빌드 및 ECR 푸시
       - name: Build, tag, and push image to ECR
@@ -41,16 +43,22 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # ⚠️ 깃헙 레포 구조에 따라 Dockerfile 경로를 조정해야 합니다.
-          docker build -t $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG ./backend
-          docker push $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+          FULL_IMAGE_NAME=$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+          # ⚠️ Dockerfile 경로를 실제 백엔드 코드가 있는 곳에 맞게 수정하세요.
+          docker build -t $FULL_IMAGE_NAME ./backend
+          docker push $FULL_IMAGE_NAME
 
-      # 4. EKS kubeconfig 업데이트 (kubectl 명령어 사용을 위해)
+      # 4. EKS kubeconfig 업데이트 (Helm/kubectl 명령어 사용을 위해)
       - name: Update Kubeconfig
         run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
-
-      # 5. EKS에 배포 (kubectl 명령어로 Deployment의 이미지 태그 업데이트)
-      - name: Deploy to EKS with kubectl
+      
+      # 5. Helm CLI를 사용하여 EKS에 배포 (CD)
+      - name: Deploy with Helm
+        # Helm CLI는 ubuntu-latest 환경에 대부분 설치되어 있습니다.
         run: |
-          # ⚠️ EKS에 배포된 Deployment 이름과 컨테이너 이름을 조정해야 합니다.
-          kubectl set image deployment/stock-api-deployment stock-api-container=$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }} -n default
+          # Helm upgrade/install 명령 실행
+          helm upgrade stock-api-release ./charts/stock-app \
+            --install \
+            --atomic \
+            --namespace default \
+            --set image.tag=${{ github.sha }}

@@ -46,9 +46,17 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
       Effect   = "Allow"
       Action   = [
         "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query",
-        "dynamodb:UpdateItem", "dynamodb:DeleteItem"
+        "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:BatchWriteItem"
       ]
-      Resource = [aws_dynamodb_table.app_data_table.arn]
+      Resource = [
+        aws_dynamodb_table.app_data_table.arn,
+        # ⬇️ [추가] User 및 Post 테이블 ARN 추가
+        aws_dynamodb_table.user_table.arn,
+        aws_dynamodb_table.post_table.arn,
+        # DynamoDB GSI 접근을 위한 패턴 매칭 (ARN/*)
+        "${aws_dynamodb_table.user_table.arn}/*", 
+        "${aws_dynamodb_table.post_table.arn}/*" 
+      ]
     }]
   })
 }

@@ -1,0 +1,8 @@
+# charts/stock-app/Chart.yaml
+
+apiVersion: v2
+name: stock-app
+description: Naver Stock Clone Application Backend
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

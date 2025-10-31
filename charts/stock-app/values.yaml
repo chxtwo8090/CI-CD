@@ -1,0 +1,18 @@
+# charts/stock-app/values.yaml
+
+# EKS에 배포할 애플리케이션의 설정 정의
+replicaCount: 2  # t3.small 노드 2개를 고려하여 2개 복제본 설정
+
+image:
+  repository: 798874239435.dkr.ecr.ap-northeast-2.amazonaws.com/stock-api
+  tag: latest # 실제 배포 시에는 GitHub SHA로 덮어씌워짐
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer # 외부에서 웹 페이지 접근을 위해 ALB와 연동되는 LoadBalancer 타입 사용
+  port: 80 # 외부 노출 포트
+  targetPort: 8080 # 컨테이너 내부 포트 (백엔드 포트)
+
+ingress:
+  enabled: true # ALB Ingress Controller 사용
+  host: changyu.stock.local # 임시 도메인 이름

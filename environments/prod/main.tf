@@ -47,7 +47,7 @@ module "vpc" {
 # 3. 애플리케이션용 DynamoDB 테이블 및 ECR 레포지토리
 # ---------------------------------------------
 
-# 애플리케이션 데이터 테이블 (NaverStockData)
+# (기존) 주식 데이터 테이블 (NaverStockData)
 resource "aws_dynamodb_table" "app_data_table" {
   name             = "NaverStockData"
   billing_mode     = "PROVISIONED"
@@ -57,22 +57,61 @@ resource "aws_dynamodb_table" "app_data_table" {
   hash_key         = "StockId"
   range_key        = "Timestamp"
 
-  # ⬇️ 수정된 부분
-  attribute { 
+   attribute { 
     name = "StockId"
     type = "S" 
   }
   attribute { 
     name = "Timestamp" 
     type = "S" 
-  }
-  # ⬆️ 수정된 부분
+   }
   
   tags = {
     Name = "NaverStockData"
   }
 }
 
+# ⬇️ [수정 완료]: 새로운 테이블 추가 및 구문 오류 해결
+
+# (추가) 1-1. 사용자 관리 테이블 (회원가입/로그인)
+resource "aws_dynamodb_table" "user_table" {
+  name             = "CommunityUsers"
+  billing_mode     = "PAY_PER_REQUEST" # 비용 효율을 위해 온디맨드 사용
+  hash_key         = "UserId"
+  
+  # ⬇️ hash_key 및 GSI가 참조할 attribute들을 정의
+  attribute { name = "UserId", type = "S" }
+  attribute { name = "Username", type = "S" }
+
+  # 사용자 이름 중복 확인을 위한 GSI (Global Secondary Index)
+  global_secondary_index {
+    name               = "UsernameIndex"
+    hash_key           = "Username"
+    projection_type    = "ALL"
+    # PAY_PER_REQUEST 모드에서는 read/write capacity 지정 불필요
+  }
+  
+  tags = { Name = "CommunityUsers" }
+}
+
+# (추가) 1-2. 게시글/댓글 테이블 (종목토론방)
+resource "aws_dynamodb_table" "post_table" {
+  name             = "DiscussionPosts"
+  billing_mode     = "PAY_PER_REQUEST"
+  hash_key         = "StockCode"    # 종목 코드로 파티션
+  range_key        = "PostId"       # PostId는 고유 값 (UUID)
+  
+  # ⬇️ hash_key와 range_key가 참조할 attribute들을 정의
+  attribute { name = "StockCode", type = "S" }
+  attribute { name = "PostId", type = "S" }
+  
+  tags = { Name = "DiscussionPosts" }
+}
+
+# ⬆️ [수정 완료]: 새로운 테이블 추가 및 구문 오류 해결
+
 # ECR 레포지토리 (Docker 이미지 저장소)
 resource "aws_ecr_repository" "frontend" { name = "stock-web-app" }
 resource "aws_ecr_repository" "backend" { name = "stock-api" }
+# (추가) LLM 챗봇을 위한 ECR 레포지토리
+resource "aws_ecr_repository" "llm_chatbot" { name = "llm-chatbot-api" }
