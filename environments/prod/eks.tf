@@ -18,8 +18,8 @@ module "eks" {
       min_size       = 1
       max_size       = 2
       desired_size   = 2
-      instance_types = ["t3.small"] # ⚠️ 사용자 요청 반영
-      ami_type       = "AL2023_X86_64_STANDARD"
+      instance_types = ["t3.small"] # 사용자 요청 반영
+      ami_type       = "AL2023_x86_64_STANDARD"
       disk_size      = 20
     }
   }
@@ -47,7 +47,7 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
 
 # EKS Service Account Role에 DynamoDB 정책 연결
 resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
-  # EKS 모듈이 자동으로 생성한 ServiceAccount Role에 정책 연결 
-  role       = module.eks.cluster_primary_role_name 
+  # ⬇️ [수정]: 노드 그룹의 IAM Role 이름을 참조하도록 변경
+  role       = module.eks.eks_managed_node_groups["cost_efficient_nodes"].iam_role_name 
   policy_arn = aws_iam_policy.dynamodb_access_policy.arn
 }

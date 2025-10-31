@@ -11,10 +11,10 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "chxtwo-git"                 # ⚠️ 사용자 S3 버킷 이름
+    bucket         = "chxtwo-git"                 
     key            = "terraform/eks-stock.tfstate"
     region         = "ap-northeast-2"
-    dynamodb_table = "terraform-state-lock"       # ⚠️ DynamoDB Lock 테이블 이름 (선행 작업 필요)
+    dynamodb_table = "terraform-state-lock"       
     encrypt        = true
   }
 }
@@ -38,7 +38,7 @@ module "vpc" {
   private_subnets = ["10.0.11.0/24", "10.0.12.0/24"]
 
   enable_nat_gateway     = true
-  single_nat_gateway     = true # 비용 절감을 위해 NAT Gateway 1개만 사용
+  single_nat_gateway     = true 
   enable_dns_hostnames   = true
   enable_dns_support     = true
 }
@@ -57,8 +57,16 @@ resource "aws_dynamodb_table" "app_data_table" {
   hash_key         = "StockId"
   range_key        = "Timestamp"
 
-  attribute { name = "StockId", type = "S" }
-  attribute { name = "Timestamp", type = "S" }
+  # ⬇️ 수정된 부분
+  attribute { 
+    name = "StockId"
+    type = "S" 
+  }
+  attribute { 
+    name = "Timestamp" 
+    type = "S" 
+  }
+  # ⬆️ 수정된 부분
   
   tags = {
     Name = "NaverStockData"
