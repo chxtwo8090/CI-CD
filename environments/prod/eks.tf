@@ -14,7 +14,9 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets 
 
   # ⬇️ [최종 수정]: EKS 제어 영역 KMS 암호화 비활성화
-  create_kms_key = false 
+  create_kms_key = false
+
+  create_cloudwatch_log_group = false 
 
   eks_managed_node_groups = {
     cost_efficient_nodes = {
