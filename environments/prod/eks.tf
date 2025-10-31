@@ -5,7 +5,7 @@
 # ---------------------------------------------
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.16"
+  version = "~> 18.0"
 
   cluster_name    = "chan-gyu-stock-eks"
   cluster_version = "1.29"
