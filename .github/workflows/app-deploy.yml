@@ -1,0 +1,56 @@
+# .github/workflows/app-deploy.yml
+name: "Application Deploy to EKS"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**' # 백엔드 코드 변경 시에만 실행
+
+permissions:
+  id-token: write # OIDC 인증 필수
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: chan-gyu-stock-eks
+  BACKEND_REPO: stock-api 
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # 1. OIDC를 통한 AWS 인증 (ECR 및 EKS 접근 권한 필요)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }} # 인프라 Role과 동일 Role 사용 가정
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 2. ECR 로그인
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 3. Docker 이미지 빌드 및 ECR 푸시
+      - name: Build, tag, and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # ⚠️ 깃헙 레포 구조에 따라 Dockerfile 경로를 조정해야 합니다.
+          docker build -t $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG ./backend
+          docker push $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+
+      # 4. EKS kubeconfig 업데이트 (kubectl 명령어 사용을 위해)
+      - name: Update Kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      # 5. EKS에 배포 (kubectl 명령어로 Deployment의 이미지 태그 업데이트)
+      - name: Deploy to EKS with kubectl
+        run: |
+          # ⚠️ EKS에 배포된 Deployment 이름과 컨테이너 이름을 조정해야 합니다.
+          kubectl set image deployment/stock-api-deployment stock-api-container=$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }} -n default

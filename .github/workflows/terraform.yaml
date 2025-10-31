@@ -1,0 +1,88 @@
+# .github/workflows/terraform.yml
+name: "Terraform Infrastructure Deployment"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write # OIDC 인증 필수
+  contents: read
+  pull-requests: write # PR 코멘트 작성
+
+env:
+  # ⚠️ .tf 파일에 정의된 백엔드 정보
+  S3_STATE_BUCKET: chxtwo-git
+  DYNAMODB_STATE_TABLE: terraform-state-lock
+  # ⬇️ Terraform 코드의 실제 경로 지정
+  TF_WORKING_DIR: ./environments/prod
+
+jobs:
+  terraform_plan:
+    runs-on: ubuntu-latest
+    # ⬇️ [수정]: 이 Job의 모든 'run' 스텝이 'environments/prod'에서 실행되도록 설정
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }} 
+        
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      # 1. OIDC를 통한 AWS 인증
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      # 2. Plan 실행
+      - name: Terraform Init & Plan
+        run: |
+          terraform init -backend-config="bucket=${{ env.S3_STATE_BUCKET }}" -backend-config="dynamodb_table=${{ env.DYNAMODB_STATE_TABLE }}"
+          terraform plan -no-color | tee plan.txt
+
+      # 3. PR에 Plan 결과 코멘트 작성
+      - name: Update PR Status
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            // 파일 경로에 working-directory가 반영되므로 상대 경로 사용
+            const planOutput = fs.readFileSync('plan.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🏗️ Terraform Plan Result\n\n\`\`\`\n${planOutput}\n\`\`\``
+            })
+
+  terraform_apply:
+    needs: terraform_plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # ⬇️ [수정]: 이 Job의 모든 'run' 스텝이 'environments/prod'에서 실행되도록 설정
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      # 4. Apply 실행 (인프라 배포)
+      - name: Terraform Init & Apply
+        run: |
+          terraform init -backend-config="bucket=${{ env.S3_STATE_BUCKET }}" -backend-config="dynamodb_table=${{ env.DYNAMODB_STATE_TABLE }}"
+          terraform apply -auto-approve
