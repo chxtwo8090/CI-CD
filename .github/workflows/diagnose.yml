@@ -1,7 +1,7 @@
 # .github/workflows/diagnose.yml
 name: "EKS Deployment Diagnoser"
 
-on: [workflow_dispatch] # ⬅️ GitHub 웹에서 수동으로 실행하도록 설정
+on: [workflow_dispatch] # GitHub 웹에서 수동으로 실행
 
 permissions:
   id-token: write # OIDC 인증
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 1. OIDC를 통한 AWS 인증 (GitHub Actions 환경은 성공함)
+      # 1. OIDC를 통한 AWS 인증
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -30,13 +30,13 @@ jobs:
       # 3. 모든 Pod의 상태 진단 (Timeout 원인 파악)
       - name: Check all Pod statuses
         run: |
-          echo "--- All Pods Status ---"
-          # ⬇️ [수정]: 모든 네임스페이스의 Pod를 출력
-          kubectl get pods -A -o wide
+          echo "--- All Pods Status (A-wide) ---"
+          # ⬇️ [수정]: 모든 네임스페이스의 Pod 상태 출력
+          kubectl get pods -A -o wide 
           
-      # 4. 실패한 Pod 상세 정보 확인 (ImagePullBackOff, Pending 등의 원인)
-      - name: Get Deployment Details
+      # 4. Ingress Controller Pod 상태 확인 (ALB 생성 주체)
+      - name: Check Ingress Controller Status
         run: |
-          echo "--- Deployment Details ---"
-          # Backend Pod의 상태 설명 (예시)
-          kubectl describe deployment stock-api-release-backend
+          echo "--- Ingress Controller Pod Status ---"
+          # ⬇️ [수정]: LBC Pod 상태 확인
+          kubectl get pods -n kube-system | grep alb
