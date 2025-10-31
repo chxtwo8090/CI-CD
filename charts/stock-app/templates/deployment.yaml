@@ -90,9 +90,9 @@ spec:
           ports:
             - containerPort: {{ .Values.llm.service.targetPort }}
           resources:
-            limits:
-              cpu: 1500m
-              memory: 2048Mi
+            limits: 
+              cpu: 500m      # 0.5 CPU
+              memory: 512Mi  # 0.5 GiB
             requests:
-              cpu: 750m
-              memory: 1024Mi
+              cpu: 250m      # 0.25 CPU
+              memory: 256Mi  # 0.25 GiB
