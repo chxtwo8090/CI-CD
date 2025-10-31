@@ -9,7 +9,7 @@ import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # ----------------------------------------------------
-# 1. 초기 설정 및 AWS 클라이언트 설정#
+# 1. 초기 설정 및 AWS 클라이언트 설정# 
 # ----------------------------------------------------
 app = Flask(__name__)
 # 로컬 개발 환경에서는 'dummy-secret-key'로 작동하며,

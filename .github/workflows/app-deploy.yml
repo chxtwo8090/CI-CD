@@ -56,9 +56,10 @@ jobs:
       - name: Deploy with Helm
         # Helm CLI는 ubuntu-latest 환경에 대부분 설치되어 있습니다.
         run: |
-          # Helm upgrade/install 명령 실행
+          # ⬇️ [수정]: Helm set 옵션을 정확한 경로로 변경합니다.
+          # 이제 백엔드 Deployment의 이미지 태그만 정확히 업데이트합니다.
           helm upgrade stock-api-release ./charts/stock-app \
             --install \
             --atomic \
             --namespace default \
-            --set image.tag=${{ github.sha }}
+            --set backend.image.tag=${{ github.sha }}
