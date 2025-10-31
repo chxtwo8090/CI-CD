@@ -1,31 +1,92 @@
 # charts/stock-app/templates/deployment.yaml
 
+# 1. 백엔드 API Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-deployment
+  name: {{ .Release.Name }}-backend
   labels:
-    app: {{ .Release.Name }}
+    app: backend
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.backend.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}
+      app: backend
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}
+        app: backend
     spec:
       containers:
         - name: backend-container
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.targetPort }}
+            - containerPort: {{ .Values.backend.service.targetPort }}
           resources:
-            limits: # t3.small 노드 환경에 맞게 적절히 제한 (비용 관리)
+            limits:
               cpu: 500m
               memory: 512Mi
             requests:
               cpu: 250m
               memory: 256Mi
+
+---
+
+# 2. 프론트엔드 Web Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-frontend
+  labels:
+    app: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app: frontend
+    spec:
+      containers:
+        - name: frontend-container
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.frontend.service.targetPort }}
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+
+  # 3. LLM 챗봇 API Deployment (새로 추가)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-llm-chatbot
+  labels:
+    app: llm-chatbot
+spec:
+  replicas: {{ .Values.llm.replicaCount }}
+  selector:
+    matchLabels:
+      app: llm-chatbot
+  template:
+    metadata:
+      labels:
+        app: llm-chatbot
+    spec:
+      containers:
+        - name: llm-container
+          image: "{{ .Values.llm.image.repository }}:{{ .Values.llm.image.tag }}"
+          imagePullPolicy: {{ .Values.llm.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.llm.service.targetPort }}
+          resources:
+            limits: # 🚨 t3.small 환경임을 감안하여 LLM 로딩을 위해 메모리 요청량을 높게 설정
+              cpu: 1500m
+              memory: 2048Mi # 2GB
+            requests:
+              cpu: 750m
+              memory: 1024Mi # 1GB (노드당 하나의 LLM Pod만 배포되도록 유도)
