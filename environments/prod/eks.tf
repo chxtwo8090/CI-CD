@@ -57,3 +57,4 @@ resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
   role       = module.eks.eks_managed_node_groups["cost_efficient_nodes"].iam_role_name 
   policy_arn = aws_iam_policy.dynamodb_access_policy.arn
 }
+
