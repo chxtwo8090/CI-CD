@@ -80,8 +80,14 @@ resource "aws_dynamodb_table" "user_table" {
   hash_key         = "UserId"
   
   # ⬇️ hash_key 및 GSI가 참조할 attribute들을 정의
-  attribute { name = "UserId", type = "S" }
-  attribute { name = "Username", type = "S" }
+  attribute { 
+    name = "UserId"
+    type = "S"
+  }
+  attribute { 
+    name = "Username"
+    type = "S"
+  }
 
   # 사용자 이름 중복 확인을 위한 GSI (Global Secondary Index)
   global_secondary_index {
@@ -102,9 +108,15 @@ resource "aws_dynamodb_table" "post_table" {
   range_key        = "PostId"       # PostId는 고유 값 (UUID)
   
   # ⬇️ hash_key와 range_key가 참조할 attribute들을 정의
-  attribute { name = "StockCode", type = "S" }
-  attribute { name = "PostId", type = "S" }
-  
+  attribute { 
+    name = "StockCode"
+    type = "S" 
+     }
+  attribute { 
+    name = "PostId"
+    type = "S"
+  }
+
   tags = { Name = "DiscussionPosts" }
 }
 
