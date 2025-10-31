@@ -65,3 +65,36 @@ resource "aws_iam_role_policy_attachment" "dynamodb_sa_attach" {
   role       = module.eks.eks_managed_node_groups["cost_efficient_nodes"].iam_role_name 
   policy_arn = aws_iam_policy.dynamodb_access_policy.arn
 }
+
+# ---------------------------------------------
+# 3. ECR 접근을 위한 VPC Interface Endpoints 추가
+# (ImagePullBackOff 오류 해결책)
+# ---------------------------------------------
+
+# ECR API 접근을 위한 Endpoint
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = module.vpc.vpc_id
+  service_name        = "com.amazonaws.ap-northeast-2.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [module.vpc.default_security_group_id]
+  subnet_ids          = module.vpc.private_subnets
+  private_dns_enabled = true
+}
+
+# ECR Docker Registry 접근을 위한 Endpoint
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = module.vpc.vpc_id
+  service_name        = "com.amazonaws.ap-northeast-2.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [module.vpc.default_security_group_id]
+  subnet_ids          = module.vpc.private_subnets
+  private_dns_enabled = true
+}
+
+# S3 접근을 위한 Gateway Endpoint (선택적, 안정성 향상)
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = module.vpc.vpc_id
+  service_name = "com.amazonaws.ap-northeast-2.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = module.vpc.private_route_table_ids
+}
